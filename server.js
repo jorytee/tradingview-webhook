@@ -9,7 +9,7 @@ const PORT           = process.env.PORT           || 3000
 const API_KEY        = process.env.BINANCE_API_KEY || ''
 const SECRET         = process.env.BINANCE_SECRET  || ''
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET  || '' // optional bearer token
-const BASE_URL       = 'https://fapi.binance.com'
+const BASE_URL       = process.env.BINANCE_BASE_URL || 'https://testnet.binancefuture.com'
 
 if (!API_KEY || !SECRET) {
   console.error('BINANCE_API_KEY and BINANCE_SECRET must be set')
