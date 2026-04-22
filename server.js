@@ -185,10 +185,11 @@ app.use(express.json())
 app.get('/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }))
 
 app.post('/webhook', async (req, res) => {
-  // Optional: simple bearer-token auth
+  // Optional: simple bearer-token auth (header OR json body)
   if (WEBHOOK_SECRET) {
-    const token = (req.headers.authorization || '').replace('Bearer ', '')
-    if (token !== WEBHOOK_SECRET) {
+    const headerToken = (req.headers.authorization || '').replace('Bearer ', '')
+    const bodyToken   = req.body?.secret || ''
+    if (headerToken !== WEBHOOK_SECRET && bodyToken !== WEBHOOK_SECRET) {
       return res.status(401).json({ error: 'Unauthorised' })
     }
   }
