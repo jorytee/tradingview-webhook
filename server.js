@@ -53,9 +53,6 @@ function normaliseSymbol(raw) {
 
 // ─── ORDER HELPERS ────────────────────────────────────────────────────────────
 
-// Round quantity to Binance lot-size precision.
-// BTC=3dp, ETH=3dp, XRP=1dp — fetch /fapi/v1/exchangeInfo for exact rules.
-// Default to 3dp which is safe for most major coins.
 function roundQty(qty, decimals = 3) {
   return parseFloat(Number(qty).toFixed(decimals))
 }
@@ -65,7 +62,6 @@ function roundPrice(price, decimals = 2) {
 }
 
 // In-memory store: symbol → Binance SL order ID
-// For multi-process/restart resilience, replace with Redis.
 const slOrderIds = new Map()
 
 async function cancelSL(symbol) {
@@ -75,7 +71,6 @@ async function cancelSL(symbol) {
     await binance('DELETE', '/fapi/v1/order', { symbol, orderId })
     log(`Cancelled SL order ${orderId} for ${symbol}`)
   } catch (e) {
-    // Already filled or cancelled — safe to ignore
     log(`SL cancel skipped (already gone): ${JSON.stringify(e)}`)
   } finally {
     slOrderIds.delete(symbol)
@@ -89,7 +84,7 @@ async function placeSL(symbol, closeSide, stopPrice) {
     side:          closeSide,
     type:          'STOP_MARKET',
     stopPrice:     roundPrice(stopPrice),
-    closePosition: true,   // closes 100% of remaining position when triggered
+    closePosition: true,
     workingType:   'MARK_PRICE',
     timeInForce:   'GTC',
   })
@@ -108,7 +103,7 @@ async function getPositionAmt(symbol) {
 
 async function handleEntry({ symbol, side, quantity, sl_price }) {
   const binanceSide = side === 'long' ? 'BUY' : 'SELL'
-  const closeSide   = side === 'long' ? 'SELL' : 'BUY'
+  // const closeSide   = side === 'long' ? 'SELL' : 'BUY'  // not needed without SL
   const qty         = roundQty(quantity)
 
   // 1. Open position at market
@@ -120,8 +115,8 @@ async function handleEntry({ symbol, side, quantity, sl_price }) {
   })
   log(`Entry ${binanceSide} ${qty} ${symbol} @ market → orderId ${order.orderId}`)
 
-  // 2. Place stop-loss
-  await placeSL(symbol, closeSide, sl_price)
+  // 2. SL disabled for testnet (STOP_MARKET not supported)
+  // await placeSL(symbol, closeSide, sl_price)
 
   return order
 }
@@ -130,8 +125,8 @@ async function handleCloseHalf({ symbol, side, quantity, sl_price }) {
   const closeSide = side === 'long' ? 'SELL' : 'BUY'
   const qty       = roundQty(quantity)
 
-  // 1. Cancel current SL (will be replaced at breakeven)
-  await cancelSL(symbol)
+  // 1. Cancel current SL (disabled for testnet)
+  // await cancelSL(symbol)
 
   // 2. Close 50% at market
   const order = await binance('POST', '/fapi/v1/order', {
@@ -143,29 +138,27 @@ async function handleCloseHalf({ symbol, side, quantity, sl_price }) {
   })
   log(`CloseHalf ${closeSide} ${qty} ${symbol} @ market → orderId ${order.orderId}`)
 
-  // 3. Place new BE stop on remaining half
-  //    sl_price = ep (entry price) sent by Pine Script after 2R close
-  await placeSL(symbol, closeSide, sl_price)
+  // 3. SL disabled for testnet
+  // await placeSL(symbol, closeSide, sl_price)
 
   return order
 }
 
 async function handleTrailActivated({ symbol, side, sl_price }) {
-  // Pine fires this once when the 3R trail activates.
-  // Update SL stop to the current trail level.
-  const closeSide = side === 'long' ? 'SELL' : 'BUY'
-  const order = await placeSL(symbol, closeSide, sl_price)
-  log(`Trail activated — SL moved to ${sl_price}`)
-  return order
+  // SL disabled for testnet
+  // const closeSide = side === 'long' ? 'SELL' : 'BUY'
+  // const order = await placeSL(symbol, closeSide, sl_price)
+  log(`Trail activated — SL disabled for testnet (would move to ${sl_price})`)
+  return { skipped: true, reason: 'SL disabled for testnet' }
 }
 
 async function handleExit({ symbol, side }) {
   const closeSide = side === 'long' ? 'SELL' : 'BUY'
 
-  // 1. Cancel open SL order (Pine's backtester fired the exit — we handle it here)
-  await cancelSL(symbol)
+  // 1. Cancel open SL (disabled for testnet)
+  // await cancelSL(symbol)
 
-  // 2. Check whether Binance already closed the position (e.g., its own SL filled first)
+  // 2. Check whether position is already closed
   const posAmt = await getPositionAmt(symbol)
   if (posAmt === 0) {
     log(`Exit skipped — ${symbol} already flat`)
