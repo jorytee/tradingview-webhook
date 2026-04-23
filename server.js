@@ -53,6 +53,14 @@ function normaliseSymbol(raw) {
 
 // ─── ORDER HELPERS ────────────────────────────────────────────────────────────
 
+function getQtyPrecision(symbol) {
+  if (['BTCUSDT'].includes(symbol)) return 1
+  if (['ETHUSDT', 'SOLUSDT', 'XAUUSDT', 'XAGUSD'].includes(symbol)) return 2
+  if (['HYPEUSDT'].includes(symbol)) return 3
+  if (['VIRTUALUSDT', 'XRPUSDT'].includes(symbol)) return 4
+  return 3
+}
+
 function roundQty(qty, decimals = 3) {
   return parseFloat(Number(qty).toFixed(decimals))
 }
@@ -104,7 +112,7 @@ async function getPositionAmt(symbol) {
 async function handleEntry({ symbol, side, quantity, sl_price }) {
   const binanceSide = side === 'long' ? 'BUY' : 'SELL'
   // const closeSide   = side === 'long' ? 'SELL' : 'BUY'  // not needed without SL
-  const qty         = roundQty(quantity)
+  const qty         = roundQty(quantity, getQtyPrecision(symbol))
 
   // 1. Open position at market
   const order = await binance('POST', '/fapi/v1/order', {
@@ -123,7 +131,7 @@ async function handleEntry({ symbol, side, quantity, sl_price }) {
 
 async function handleCloseHalf({ symbol, side, quantity, sl_price }) {
   const closeSide = side === 'long' ? 'SELL' : 'BUY'
-  const qty       = roundQty(quantity)
+  const qty       = roundQty(quantity, getQtyPrecision(symbol))
 
   // 1. Cancel current SL (disabled for testnet)
   // await cancelSL(symbol)
@@ -170,7 +178,7 @@ async function handleExit({ symbol, side }) {
     symbol,
     side:       closeSide,
     type:       'MARKET',
-    quantity:   roundQty(Math.abs(posAmt)),
+    quantity:   roundQty(Math.abs(posAmt), getQtyPrecision(symbol)),
     reduceOnly: true,
   })
   log(`Exit ${closeSide} ${Math.abs(posAmt)} ${symbol} @ market → orderId ${order.orderId}`)
