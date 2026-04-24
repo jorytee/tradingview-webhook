@@ -104,7 +104,8 @@ async function placeSL(symbol, closeSide, stopPrice) {
 async function getPositionAmt(symbol) {
   const positions = await binance('GET', '/fapi/v2/positionRisk', { symbol })
   const pos = Array.isArray(positions) ? positions[0] : positions
-  return parseFloat(pos?.positionAmt ?? 0)
+  const amt = parseFloat(pos?.positionAmt ?? 0)
+  return isFinite(amt) ? amt : 0
 }
 
 // ─── ACTION HANDLERS ──────────────────────────────────────────────────────────
@@ -258,7 +259,20 @@ app.post('/webhook', async (req, res) => {
   }
 })
 
-app.listen(PORT, () => log(`Webhook server listening on port ${PORT}`))
+try {
+  app.listen(PORT, () => log(`Webhook server listening on port ${PORT}`))
+} catch (err) {
+  console.error('[LISTEN ERROR]', err)
+  process.exit(1)
+}
+
+process.on('unhandledRejection', (err) => {
+  console.error('[UNHANDLED]', err)
+})
+
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT]', err)
+})
 
 function log(msg) {
   console.log(`[${new Date().toISOString()}] ${msg}`)
