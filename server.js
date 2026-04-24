@@ -57,7 +57,7 @@ function getQtyPrecision(symbol) {
   if (['BTCUSDT'].includes(symbol)) return 1
   if (['ETHUSDT', 'SOLUSDT', 'XAUUSDT', 'XAGUSD'].includes(symbol)) return 2
   if (['HYPEUSDT'].includes(symbol)) return 3
-  if (['VIRTUALUSDT', 'XRPUSDT'].includes(symbol)) return 4
+  if (['VIRTUALUSDT', 'XRPUSDT'].includes(symbol)) return 1
   return 3
 }
 
