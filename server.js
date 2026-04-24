@@ -131,7 +131,20 @@ async function handleEntry({ symbol, side, quantity, sl_price }) {
 
 async function handleCloseHalf({ symbol, side, quantity, sl_price }) {
   const closeSide = side === 'long' ? 'SELL' : 'BUY'
-  const qty       = roundQty(quantity, getQtyPrecision(symbol))
+  const prec      = getQtyPrecision(symbol)
+
+  // If Pine sends NaN/missing quantity, fetch live position and halve it
+  let qty = parseFloat(quantity)
+  if (!isFinite(qty) || qty <= 0) {
+    const posAmt = await getPositionAmt(symbol)
+    if (posAmt === 0) {
+      log(`CloseHalf skipped — ${symbol} already flat`)
+      return { skipped: true, reason: 'position already closed' }
+    }
+    qty = Math.abs(posAmt) / 2
+    log(`CloseHalf: quantity from Pine was invalid, using live posAmt/2 = ${qty}`)
+  }
+  qty = roundQty(qty, prec)
 
   // 1. Cancel current SL (disabled for testnet)
   // await cancelSL(symbol)
@@ -160,28 +173,31 @@ async function handleTrailActivated({ symbol, side, sl_price }) {
   return { skipped: true, reason: 'SL disabled for testnet' }
 }
 
-async function handleExit({ symbol, side }) {
+async function handleExit({ symbol, side, quantity }) {
   const closeSide = side === 'long' ? 'SELL' : 'BUY'
+  const prec      = getQtyPrecision(symbol)
 
   // 1. Cancel open SL (disabled for testnet)
   // await cancelSL(symbol)
 
-  // 2. Check whether position is already closed
+  // 2. Always fetch live position — Pine quantity may be NaN or stale
   const posAmt = await getPositionAmt(symbol)
   if (posAmt === 0) {
     log(`Exit skipped — ${symbol} already flat`)
     return { skipped: true, reason: 'position already closed' }
   }
 
+  const qty = roundQty(Math.abs(posAmt), prec)
+
   // 3. Close whatever remains
   const order = await binance('POST', '/fapi/v1/order', {
     symbol,
     side:       closeSide,
     type:       'MARKET',
-    quantity:   roundQty(Math.abs(posAmt), getQtyPrecision(symbol)),
+    quantity:   qty,
     reduceOnly: true,
   })
-  log(`Exit ${closeSide} ${Math.abs(posAmt)} ${symbol} @ market → orderId ${order.orderId}`)
+  log(`Exit ${closeSide} ${qty} ${symbol} @ market → orderId ${order.orderId}`)
   return order
 }
 
