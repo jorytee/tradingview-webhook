@@ -55,7 +55,7 @@ function normaliseSymbol(raw) {
 
 function getQtyPrecision(symbol) {
   if (['BTCUSDT'].includes(symbol)) return 4
-  if (['ETHUSDT', 'XAUUSDT', 'XAGUSD'].includes(symbol)) return 3
+  if (['ETHUSDT', 'XAUUSDT', 'XAGUSD', 'TAOUSDT'].includes(symbol)) return 3
   if (['SOLUSDT', 'HYPEUSDT'].includes(symbol)) return 2
   if (['VIRTUALUSDT', 'XRPUSDT'].includes(symbol)) return 1
   return 3
