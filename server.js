@@ -86,18 +86,23 @@ async function cancelSL(symbol) {
 }
 
 async function placeSL(symbol, closeSide, stopPrice) {
+  const price = parseFloat(stopPrice)
+  if (!isFinite(price) || price <= 0) {
+    log(`[WARN] placeSL skipped — sl_price is invalid (${stopPrice}). Position unprotected!`)
+    return { skipped: true, reason: `invalid sl_price: ${stopPrice}` }
+  }
   await cancelSL(symbol)
   const order = await binance('POST', '/fapi/v1/order', {
     symbol,
     side:          closeSide,
     type:          'STOP_MARKET',
-    stopPrice:     roundPrice(stopPrice),
+    stopPrice:     roundPrice(price),
     closePosition: true,
     workingType:   'MARK_PRICE',
     timeInForce:   'GTC',
   })
   slOrderIds.set(symbol, order.orderId)
-  log(`Placed SL ${closeSide} STOP_MARKET @ ${stopPrice} → orderId ${order.orderId}`)
+  log(`Placed SL ${closeSide} STOP_MARKET @ ${price} → orderId ${order.orderId}`)
   return order
 }
 
